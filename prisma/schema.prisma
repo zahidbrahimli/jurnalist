@@ -1,0 +1,115 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum Role {
+  journalist
+  manager
+  admin
+}
+
+enum Priority {
+  low
+  normal
+  high
+  urgent
+}
+
+enum Decision {
+  approved
+  needs_edit
+  rejected
+}
+
+enum State {
+  submitted
+  delivered
+  in_review
+  approved
+  needs_edit
+  rejected
+}
+
+// Models
+model User {
+  id           String   @id @default(cuid())
+  role         Role
+  name         String
+  email        String   @unique
+  organization String?
+  createdAt    DateTime @default(now())
+
+  // Relations
+  reviews          Review[]
+  articles         Article[] @relation("ArticleJournalist")
+  assignedArticles Article[] @relation("ArticleAssignee")
+}
+
+model Article {
+  id              String   @id @default(cuid())
+  title           String
+  body            String?
+  url             String?
+  files           Json?
+  subjectPerson   String?
+  newsroomContact String?
+  officialEmail   String?
+  priority        Priority @default(normal)
+  status          State    @default(submitted)
+  createdAt       DateTime @default(now())
+
+  // Submitter info
+  journalistEmail String?
+  journalistId    String?
+  journalist      User?   @relation("ArticleJournalist", fields: [journalistId], references: [id])
+
+  // Assignment (manager who owns the review)
+  assigneeId String?
+  assignee   User?   @relation("ArticleAssignee", fields: [assigneeId], references: [id])
+
+  // Relations
+  reviews      Review[]
+  statusEvents StatusEvent[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([assigneeId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  decision  Decision
+  comment   String?
+  decidedAt DateTime @default(now())
+
+  // Relations
+  articleId String
+  article   Article @relation(fields: [articleId], references: [id])
+  managerId String
+  manager   User    @relation(fields: [managerId], references: [id])
+
+  @@index([articleId])
+  @@index([managerId])
+}
+
+model StatusEvent {
+  id        String   @id @default(cuid())
+  state     State
+  note      String?
+  createdAt DateTime @default(now())
+
+  articleId String
+  article   Article @relation(fields: [articleId], references: [id])
+
+  @@index([articleId])
+}
